@@ -1,0 +1,46 @@
+---
+global:
+  storageClass: 'local-path'
+  postgresql:
+    postgresqlPassword: postgres
+postgresql:
+  priorityClassName: ''
+  username: test
+  password: test
+  repmgrUsername: repmgr
+  repmgrPassword: repmgr!
+  repmgrDatabase: repmgr
+
+pgpool:
+  adminUsername: admin
+  adminPassword: admin
+  configuration: |
+    failover_on_backend_error = 'on'
+    failover_command = '/opt/bitnami/pgpool/etc/failover.sh %d %P %H %R'
+volumePermissions:
+  enabled: true
+
+metrics:
+  enabled: true
+  customMetrics:
+    pg_replication:
+      master: true
+      query: |
+        SELECT
+        CASE
+        WHEN pg_last_wal_receive_lsn() = pg_last_wal_replay_lsn() THEN 0
+        ELSE EXTRACT (EPOCH FROM now() - pg_last_xact_replay_timestamp())::INTEGER
+        END
+        AS lag,
+        CASE WHEN pg_is_in_recovery() THEN 1 ELSE 0 END as is_replica;
+      metrics:
+        - lag:
+            usage: "GAUGE"
+            description: "Replication lag behind master in seconds"
+        - is_replica:
+            usage: "GAUGE"
+            description: "Indicates if this host is a replica"
+
+persistance:
+  enabled: true
+  size: 100Mi
